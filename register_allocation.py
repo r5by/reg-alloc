@@ -152,7 +152,7 @@ def color_il(il: IntermediateLanguage, colors: List[str]) -> Tuple[Optional[Grap
     if coloring is None:
         return graph, None
 
-    # graph.plot(coloring, 'Colored')
+    graph.plot(coloring, 'Colored')
     return graph, coloring
 
 
