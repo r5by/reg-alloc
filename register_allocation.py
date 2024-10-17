@@ -1,6 +1,6 @@
 import copy
 from random import choice
-from typing import List, Set, Collection, Dict, Optional, Tuple
+from instr_type import List, Set, Collection, Dict, Optional, Tuple
 
 import matplotlib.pyplot as plt
 import networkx as nx
