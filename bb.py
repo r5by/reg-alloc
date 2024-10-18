@@ -18,6 +18,10 @@ class BasicBlock:
 
     def add_instruction(self, instr: InstrType):
         self.instructions.append(instr)
+        # todo> how to handle the removal of block-local variables?
+        # for example, var z in v3 of foo.c, which is not used b4 re-definition, therefore is removed out of the "uses"
+        self.uses.update(instr.uses)
+        self.defs.update(instr.defs)
 
     def compute_defs_uses(self):
         self.defs = set()

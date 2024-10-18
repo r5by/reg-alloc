@@ -69,7 +69,7 @@ class CFGAnalyzer:
             print("PyGraphviz is not installed. Please install it to get a better layout.")
             pos = nx.spring_layout(G)
         # Draw nodes
-        nx.draw_networkx_nodes(G, pos, node_color='lightblue', node_size=1500)
+        nx.draw_networkx_nodes(G, pos, node_color='lightblue', node_size=200)
         # Draw edges
         nx.draw_networkx_edges(G, pos, arrowstyle='->', arrowsize=20)
         # Draw labels
@@ -87,21 +87,10 @@ class CFGAnalyzer:
 if __name__ == '__main__':
     with open('./data/foo.c', 'r') as f:
         c_instructions = f.readlines()
-    # c_instructions = [
-    #     'int z = 10;',
-    #     'int x = 0;',
-    #     'int y = 1;',
-    #     'while(x < n) {',
-    #     '    z = x * 2 + y;',
-    #     '    if (z > 20) {',
-    #     '    x++;',
-    #     '    y = x + z;',
-    #     '}',
-    #     'return y;'
-    # ]
 
     # Build CFG for C-like code
-    cfg_builder = ClikeCFGBuilder(c_instructions, detailed=False)
+    cfg_builder = ClikeCFGBuilder(c_instructions)
+    cfg_builder.merge_basic_blocks()
     # Analyze CFG
     cfg_analyzer = CFGAnalyzer(cfg_builder)
     cfg_analyzer.perform_liveness_analysis()

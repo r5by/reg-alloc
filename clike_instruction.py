@@ -2,6 +2,7 @@ from instr_type import InstrType, IS_BLK, IS_INSTR, IS_BLK_E, IS_RET, IS_BRANCH
 import re
 
 pat_func_sign = r'^\s*([a-zA-Z_][a-zA-Z0-9_]*\s+\*?\s*)([a-zA-Z_][a-zA-Z0-9_]*)\s*\(([^)]*)\)'
+pat_func_args = re.compile(r'\b(?:unsigned\s+)?\w+\s*[\*]*\s*(\w+)')
 
 class CStyleInstruction(InstrType):
     def __init__(self, line_num, text):
@@ -49,6 +50,11 @@ class CStyleInstruction(InstrType):
             self.operation = 'return'
             self.operands = [expr]
             self.mask |= IS_RET
+        elif '++' in line:
+            expr = line
+            var = line.replace('++', '').strip()
+            self.operands = [var, expr]
+            self.operation = 'assign'
         elif '=' in line:
             var, expr = line.split('=', 1)
             var = var.strip()
@@ -63,13 +69,11 @@ class CStyleInstruction(InstrType):
             self.operands = [line]
 
     def analyze_defs_uses(self):
-        if self.operation == 'block_end':
-            return
 
         if self.operation == 'assign':
             var = self.operands[0]
             expr = self.operands[1]
-            self.defs.add(var)
+            self.defs.update(self.extract_variables(var))
             self.uses.update(self.extract_variables(expr))
         elif self.operation in {'return', 'expression'}:
             expr = self.operands[0]
@@ -77,6 +81,17 @@ class CStyleInstruction(InstrType):
         elif self.operation in {'while', 'if'}:
             condition = self.operands[0]
             self.uses.update(self.extract_variables(condition))
+        elif self.operation == 'func':
+            args = self.extract_func_args(self.operands)
+            self.uses.update(args)
+
+    def extract_func_args(self, arguments):
+        # Regular expression pattern to find variable names
+        # Looks for optional pointers (*) followed by word characters (alphanumeric + '_')
+
+        # Find all matches in the input string
+        variables = pat_func_args.findall(arguments)
+        return variables
 
     def extract_variables(self, expr):
         tokens = re.findall(r'\b[a-zA-Z_][a-zA-Z0-9_]*\b', expr)

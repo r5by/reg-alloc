@@ -1,11 +1,10 @@
-from cfg_builder import CFGBuilder
+from cfg_builder import CFGBuilder, CFG
 from clike_instruction import CStyleInstruction
 from instr_type import InstrType, IS_BLK, IS_INSTR, IS_BLK_E, IS_RET, IS_BRANCH
 from bb import BasicBlock
 
 class ClikeCFGBuilder(CFGBuilder):
-    def __init__(self, lines, detailed=True):
-        self.detailed = detailed
+    def __init__(self, lines):
         super().__init__(lines)
 
     def parse_instructions(self):
@@ -23,13 +22,13 @@ class ClikeCFGBuilder(CFGBuilder):
             if instr.mask & IS_INSTR:
                 self.instructions.append(instr)
 
-    def identify_leaders(self):
+    def identify_leaders(self, bb_enabled=False):
         self.leaders = set()
         self.leaders.add(0)  # First instruction is always a leader
 
         for idx, instr in enumerate(self.instructions):
-            if self.detailed:
-                self.leaders.add(idx) # every instruction is a block leader if detailed view is enabled
+            if not bb_enabled:
+                self.leaders.add(idx) # every instruction is a block leader if basic block is disabled
                 continue
 
             if instr.operation == 'func':
@@ -49,7 +48,6 @@ class ClikeCFGBuilder(CFGBuilder):
 
             if instr.mask & IS_RET:
                 self.leaders.add(idx)
-
 
     def build_basic_blocks(self):
         sorted_leaders = sorted(self.leaders)
@@ -132,53 +130,15 @@ class ClikeCFGBuilder(CFGBuilder):
                 self.basic_blocks[next_blk_id].pred.add(blk_id)
                 self.cfg.E.append((blk_id, next_blk_id))
 
-            prev_blk_is_branch = False
+    def cleanup(self):
+        self.ctrl_boaders = {} # dict of control blocks, inclusive format: blk_start_instr_id ==> blk_end_instr_id
+        self.instr_2_blk_id = [] # get block id of given instruction id
+        self.basic_blocks = []
+        self.cfg = CFG()
 
     def merge_basic_blocks(self):
-        if self.detailed:
-            return  # No merging in detailed mode
-
-        changed = True
-        while changed:
-            changed = False
-            new_basic_blocks = []
-            idx = 0
-            while idx < len(self.basic_blocks):
-                block = self.basic_blocks[idx]
-                merged_instructions = block.instructions.copy()
-                current_block = block
-                merge_indices = [idx]
-                while True:
-                    if len(current_block.succ) != 1:
-                        break
-                    succ_block_id = next(iter(current_block.succ))
-                    succ_block = self.basic_blocks[succ_block_id]
-                    if len(succ_block.pred) != 1:
-                        break
-                    # Do not merge if the block ends with a branch or return
-                    last_instr = current_block.instructions[-1]
-                    if last_instr.mask & (IS_BRANCH | IS_RET):
-                        break
-                    # Merge successor into current block
-                    merged_instructions.extend(succ_block.instructions)
-                    current_block = succ_block
-                    merge_indices.append(succ_block_id)
-                    changed = True
-                # Update block
-                block.instructions = merged_instructions
-                block.succ = current_block.succ
-                # Update predecessors of successors
-                for succ_id in block.succ:
-                    succ_block = self.basic_blocks[succ_id]
-                    succ_block.pred.remove(current_block.id)
-                    succ_block.pred.add(block.id)
-                new_basic_blocks.append(block)
-                idx = merge_indices[-1] + 1
-            self.basic_blocks = new_basic_blocks
-            # Rebuild cfg.V and cfg.E
-            self.cfg.V = self.basic_blocks
-            self.cfg.E = []
-            for block in self.basic_blocks:
-                for succ_id in block.succ:
-                    self.cfg.E.append((block.id, succ_id))
-
+        # pseudo merge, we actually rebuild the entire cfg for easy impl.
+        self.cleanup()
+        self.identify_leaders(bb_enabled=True)
+        self.build_basic_blocks()
+        self.build_cfg_edges()
